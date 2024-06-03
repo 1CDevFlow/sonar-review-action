@@ -1,6 +1,6 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Sonar reviewer'
+description: 'Publish sonar issues'
+author: 'alkoleft'
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
@@ -9,10 +9,27 @@ branding:
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  sonar_url:
+    description: 'Sonar server'
     required: true
-    default: '1000'
+  sonar_token:
+    description: 'Sonar token'
+    required: true
+  sonar_project:
+    description: 'Sonar project name'
+    required: true
+  sonar_branch_plugin:
+    description:
+      "Enable SonarQube Community-Branch-Plugin support. Please make sure, that
+      you've properly installed the plugin in SonarQube:
+      https://github.com/mc1arke/sonarqube-community-branch-plugin"
+    required: false
+    default: false
+  pull_number:
+    description: 'Pull request number'
+    required: false
+  github_token:
+    required: false
 
 # Define your outputs here.
 outputs:
