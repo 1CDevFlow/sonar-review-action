@@ -66,7 +66,7 @@ export class GithubMerge {
         body: params[i].comment
       }
       comments.push(comment)
-      core.debug(`createReviewComments comment #${i} ${comment}`)
+      core.debug(`      comment #${i} ${JSON.stringify(comment)}`)
     }
     if (comments.length == 0) {
       return null

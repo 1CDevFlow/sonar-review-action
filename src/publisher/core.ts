@@ -115,7 +115,7 @@ export class Publisher {
     }
 
     if (needCreate && needCreate.length) {
-      this.createNewReview(title, needCreate)
+      await this.github.createReviewComments(title, needCreate)
     }
 
     for (const i in needUpdate) {
