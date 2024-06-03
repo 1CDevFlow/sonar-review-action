@@ -29276,7 +29276,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.forceCast = exports.GithubMerge = void 0;
+exports.GithubMerge = void 0;
 const github = __importStar(__nccwpck_require__(5438));
 const core = __importStar(__nccwpck_require__(2186));
 class GithubMerge {
@@ -29312,7 +29312,7 @@ class GithubMerge {
         return data;
     }
     async createReviewComments(body, params) {
-        core.debug(`createReviewComments ${JSON.stringify(params)}`);
+        core.debug(`createReviewComments`);
         const comments = [];
         for (const i in params) {
             const comment = {
@@ -29321,18 +29321,22 @@ class GithubMerge {
                 body: params[i].comment
             };
             comments.push(comment);
-            core.debug(`createReviewComments comment #${i} ${comment}`);
+            core.debug(`      comment #${i} ${JSON.stringify(comment)}`);
         }
         if (comments.length == 0) {
             return null;
         }
-        const response = await this.octokit.rest.pulls.createReview({
+        const commandParams = {
             ...this.repo,
             pull_number: this.pull_number,
-            body: body,
+            commit_id: headSha()
+        };
+        core.debug('createReview' + JSON.stringify(commandParams));
+        const response = await this.octokit.rest.pulls.createReview({
+            ...commandParams,
             event: 'COMMENT',
-            comments: comments,
-            commit_id: github.context.sha
+            body: body,
+            comments: comments
         });
         return response.data;
     }
@@ -29342,14 +29346,14 @@ class GithubMerge {
             review_id: review_id,
             pull_number: this.pull_number,
             body: body,
-            commit_id: github.context.sha
+            commit_id: headSha()
         });
     }
     async createReviewComment(review, comment) {
         const params = {
             ...this.repo,
             pull_number: this.pull_number,
-            commit_id: review.commit_id || '',
+            commit_id: headSha(),
             body: comment.comment,
             path: comment.path,
             line: comment.line
@@ -29374,7 +29378,7 @@ class GithubMerge {
             body: comment.comment,
             path: comment.path,
             line: comment.line,
-            commit_id: github.context.sha
+            commit_id: headSha()
         });
         return response.data;
     }
@@ -29422,12 +29426,12 @@ class GithubMerge {
     }
 }
 exports.GithubMerge = GithubMerge;
-function forceCast(input) {
-    // ... do runtime checks here
-    // @ts-ignore <-- forces TS compiler to compile this as-is
-    return input;
+function headSha() {
+    return pullRequestContext().pull_request.head.sha;
 }
-exports.forceCast = forceCast;
+function pullRequestContext() {
+    return github.context.payload;
+}
 
 
 /***/ }),
@@ -29742,7 +29746,7 @@ class Publisher {
             }
         }
         if (needCreate && needCreate.length) {
-            this.createNewReview(title, needCreate);
+            await this.github.createReviewComments(title, needCreate);
         }
         for (const i in needUpdate) {
             const record = needUpdate[i];

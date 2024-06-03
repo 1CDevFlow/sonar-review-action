@@ -4,6 +4,7 @@ import * as core from '@actions/core'
 
 import { Endpoints } from '@octokit/types'
 import { Repo } from 'src/model/entity'
+import { PullRequestEvent } from '@octokit/webhooks-definitions/schema'
 
 export type IssueComment =
   Endpoints['GET /repos/{owner}/{repo}/issues/comments']['response']['data'][0]
@@ -56,7 +57,7 @@ export class GithubMerge {
     body: string,
     params: GitReviewParam[]
   ): Promise<Review | null> {
-    core.debug(`createReviewComments ${JSON.stringify(params)}`)
+    core.debug(`createReviewComments`)
 
     const comments: any = []
     for (const i in params) {
@@ -72,13 +73,17 @@ export class GithubMerge {
       return null
     }
 
-    const response = await this.octokit.rest.pulls.createReview({
+    const commandParams = {
       ...this.repo,
       pull_number: this.pull_number,
-      body: body,
+      commit_id: headSha()
+    }
+    core.debug('createReview' + JSON.stringify(commandParams))
+    const response = await this.octokit.rest.pulls.createReview({
+      ...commandParams,
       event: 'COMMENT',
-      comments: comments,
-      commit_id: github.context.sha
+      body: body,
+      comments: comments
     })
     return response.data
   }
@@ -89,7 +94,7 @@ export class GithubMerge {
       review_id: review_id,
       pull_number: this.pull_number,
       body: body,
-      commit_id: github.context.sha
+      commit_id: headSha()
     })
   }
 
@@ -98,7 +103,7 @@ export class GithubMerge {
       ...this.repo,
       pull_number: this.pull_number,
 
-      commit_id: review.commit_id || '',
+      commit_id: headSha(),
       body: comment.comment,
       path: comment.path,
       line: comment.line
@@ -127,7 +132,7 @@ export class GithubMerge {
       body: comment.comment,
       path: comment.path,
       line: comment.line,
-      commit_id: github.context.sha
+      commit_id: headSha()
     })
 
     return response.data
@@ -187,17 +192,18 @@ export class GithubMerge {
   }
 }
 
+function headSha() {
+  return pullRequestContext().pull_request.head.sha
+}
+
+function pullRequestContext(): PullRequestEvent {
+  return github.context.payload as PullRequestEvent
+}
+
 export interface GitReviewParam {
   key: string
   comment: string
   path: string
   line: number
   [key: string]: any
-}
-
-export function forceCast<T>(input: any): T {
-  // ... do runtime checks here
-
-  // @ts-ignore <-- forces TS compiler to compile this as-is
-  return input
 }
