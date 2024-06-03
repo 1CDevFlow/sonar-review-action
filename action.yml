@@ -11,13 +11,13 @@ branding:
 inputs:
   sonar_url:
     description: 'Sonar server'
-    required: true
+    required: false
   sonar_token:
     description: 'Sonar token'
-    required: true
+    required: false
   sonar_project:
     description: 'Sonar project name'
-    required: true
+    required: false
   sonar_branch_plugin:
     description:
       "Enable SonarQube Community-Branch-Plugin support. Please make sure, that
