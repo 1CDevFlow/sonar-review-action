@@ -128,11 +128,7 @@ export class GithubReview {
     const response = await this.octokit.rest.pulls.updateReviewComment({
       ...this.repo,
       comment_id: comment_id,
-      pull_number: this.pull_number,
-      body: comment.comment,
-      path: comment.path,
-      line: comment.line,
-      commit_id: headSha()
+      body: comment.comment
     })
 
     return response.data

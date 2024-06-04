@@ -93,6 +93,7 @@ export class ReviewPublisher implements Publisher {
     const reviewComments = await this.github.getReviewComments()
 
     const needDelete: number[] = []
+    const needUpdate: { comment_id: number; comment: GitReviewParam }[] = []
     const needCreate: GitReviewParam[] = []
 
     const commentsHash = new Map(comments.map(c => [c.key, c]))
@@ -111,12 +112,12 @@ export class ReviewPublisher implements Publisher {
       if (comment === undefined) {
         needDelete.push(reviewComment.id)
       } else if (comment.comment != reviewComment.body) {
-        needDelete.push(reviewComment.id)
-        needCreate.push(comment)
+        needUpdate.push({
+          comment_id: reviewComment.id,
+          comment: comment
+        })
       }
     }
-
-    await this.github.updateReview(review.id, summary)
 
     for (const i in comments) {
       const comment = comments[i]
@@ -126,8 +127,15 @@ export class ReviewPublisher implements Publisher {
       }
     }
 
+    await this.github.updateReview(review.id, summary)
+
     if (needCreate && needCreate.length) {
       await this.github.createReviewComments('', needCreate)
+    }
+
+    for (const i in needUpdate) {
+      const record = needUpdate[i]
+      await this.github.updateReviewComment(record.comment_id, record.comment)
     }
 
     for (const i in needDelete) {

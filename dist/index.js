@@ -29374,11 +29374,7 @@ class GithubReview {
         const response = await this.octokit.rest.pulls.updateReviewComment({
             ...this.repo,
             comment_id: comment_id,
-            pull_number: this.pull_number,
-            body: comment.comment,
-            path: comment.path,
-            line: comment.line,
-            commit_id: headSha()
+            body: comment.comment
         });
         return response.data;
     }
@@ -29767,6 +29763,7 @@ class ReviewPublisher {
     async updateReview(review, summary, comments) {
         const reviewComments = await this.github.getReviewComments();
         const needDelete = [];
+        const needUpdate = [];
         const needCreate = [];
         const commentsHash = new Map(comments.map(c => [c.key, c]));
         const reviewCommentsHash = new Map();
@@ -29782,11 +29779,12 @@ class ReviewPublisher {
                 needDelete.push(reviewComment.id);
             }
             else if (comment.comment != reviewComment.body) {
-                needDelete.push(reviewComment.id);
-                needCreate.push(comment);
+                needUpdate.push({
+                    comment_id: reviewComment.id,
+                    comment: comment
+                });
             }
         }
-        await this.github.updateReview(review.id, summary);
         for (const i in comments) {
             const comment = comments[i];
             const reviewComment = reviewCommentsHash.get(comment.key);
@@ -29794,8 +29792,13 @@ class ReviewPublisher {
                 needCreate.push(comment);
             }
         }
+        await this.github.updateReview(review.id, summary);
         if (needCreate && needCreate.length) {
             await this.github.createReviewComments('', needCreate);
+        }
+        for (const i in needUpdate) {
+            const record = needUpdate[i];
+            await this.github.updateReviewComment(record.comment_id, record.comment);
         }
         for (const i in needDelete) {
             const comment_id = needDelete[i];
@@ -30109,15 +30112,15 @@ class SonarReport {
         const rule = issue.rule;
         const ruleLink = `${this.host}/coding_rules?open=${rule}&rule_key=${rule}`;
         const issueLink = `${this.host}/project/issues?id=${issue.project}&pullRequest=${this.pull_number}&open=${issue.key}`;
-        let note = `**${issue.message}**  [<sub>Why is this an issue?</sub>](${ruleLink}) 
+        const tags = issue.tags && issue.tags.length ? `\`${issue.tags.join('` `')}\`　　` : '';
+        const assignee = issue.assignee
+            ? ` :bust_in_silhouette: @${issue.assignee}　　`
+            : '';
+        let note = `#### [:link:](${issueLink})${issue.message}
 
-${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${this.icon(issue.severity)} **${this.capitalize(issue.severity)}**　　 :hourglass: *${issue.effort}* effort　　 [:link:](${issueLink})`;
-        if (issue.tags && issue.tags.length) {
-            note += `\n\n \`${issue.tags.join('` `')}\``;
-        }
-        if (issue.assignee) {
-            note += '　　 :bust_in_silhouette: @' + issue.assignee + '';
-        }
+${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${this.icon(issue.severity)} **${this.capitalize(issue.severity)}**　　 :hourglass: *${issue.effort}* effort
+
+${tags}${assignee}[<sub>Why is this an issue?</sub>](${ruleLink})`;
         return note;
     }
     securityLevel(value) {
@@ -30218,7 +30221,7 @@ ${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${
             status = 'failed';
         }
         const report = `# SonarQube Code Analytics
-## Quality Gate ${status}
+## [:link:](${this.getIssuesURL()})Quality Gate ${status}
 
 [${this.icon(status)}](${this.getIssuesURL()})
 

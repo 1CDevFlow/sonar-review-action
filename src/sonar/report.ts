@@ -40,17 +40,17 @@ export class SonarReport {
     const rule = issue.rule
     const ruleLink = `${this.host}/coding_rules?open=${rule}&rule_key=${rule}`
     const issueLink = `${this.host}/project/issues?id=${issue.project}&pullRequest=${this.pull_number}&open=${issue.key}`
+    const tags =
+      issue.tags && issue.tags.length ? `\`${issue.tags.join('` `')}\`　　` : ''
+    const assignee = issue.assignee
+      ? ` :bust_in_silhouette: @${issue.assignee}　　`
+      : ''
+    let note = `#### [:link:](${issueLink})${issue.message}
 
-    let note = `**${issue.message}**  [<sub>Why is this an issue?</sub>](${ruleLink}) 
+${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${this.icon(issue.severity)} **${this.capitalize(issue.severity)}**　　 :hourglass: *${issue.effort}* effort
 
-${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${this.icon(issue.severity)} **${this.capitalize(issue.severity)}**　　 :hourglass: *${issue.effort}* effort　　 [:link:](${issueLink})`
+${tags}${assignee}[<sub>Why is this an issue?</sub>](${ruleLink})`
 
-    if (issue.tags && issue.tags.length) {
-      note += `\n\n \`${issue.tags.join('` `')}\``
-    }
-    if (issue.assignee) {
-      note += '　　 :bust_in_silhouette: @' + issue.assignee + ''
-    }
     return note
   }
 
@@ -171,7 +171,7 @@ ${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${
     }
 
     const report = `# SonarQube Code Analytics
-## Quality Gate ${status}
+## [:link:](${this.getIssuesURL()})Quality Gate ${status}
 
 [${this.icon(status)}](${this.getIssuesURL()})
 

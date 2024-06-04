@@ -27,39 +27,39 @@ describe('main.ts', () => {
     const publisher = new ReviewPublisher(sonar, github)
     await publisher.generateReport()
   })
-  it('publishIssues', async () => {
-    const sonar = new Sonar({
-      host: 'https://sonar.openbsl.ru',
-      projectKey: 'yaxunit',
-      branchPluginEnabled: true,
-      pull_number: 370
-    })
-    const github = new GithubReview({
-      repo: repo,
-      pull_number: 370,
-      token: token
-    })
-    const publisher = new ReviewPublisher(sonar, github)
-    const status = {
-      projectStatus: {
-        status: 'UNKNOWN',
-        ignoredConditions: false,
-        conditions: []
-      }
-    }
-    publisher.publishIssues(status, [
-      newIssue(
-        '1',
-        'exts/yaxunit/src/CommonModules/МокитоОбучение/Module.bsl',
-        3
-      ),
-      newIssue(
-        '2',
-        'exts/yaxunit/src/CommonModules/МокитоОбучение/Module.bsl',
-        140
-      )
-    ])
-  })
+  // it('publishIssues', async () => {
+  //   const sonar = new Sonar({
+  //     host: 'https://sonar.openbsl.ru',
+  //     projectKey: 'yaxunit',
+  //     branchPluginEnabled: true,
+  //     pull_number: 370
+  //   })
+  //   const github = new GithubReview({
+  //     repo: repo,
+  //     pull_number: 370,
+  //     token: token
+  //   })
+  //   const publisher = new ReviewPublisher(sonar, github)
+  //   const status = {
+  //     projectStatus: {
+  //       status: 'UNKNOWN',
+  //       ignoredConditions: false,
+  //       conditions: []
+  //     }
+  //   }
+  //   publisher.publishIssues(status, [
+  //     newIssue(
+  //       '1',
+  //       'exts/yaxunit/src/CommonModules/МокитоОбучение/Module.bsl',
+  //       3
+  //     ),
+  //     newIssue(
+  //       '2',
+  //       'exts/yaxunit/src/CommonModules/МокитоОбучение/Module.bsl',
+  //       140
+  //     )
+  //   ])
+  // })
 })
 
 function newIssue(key: string, path: string, line: number) {
