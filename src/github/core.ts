@@ -147,15 +147,18 @@ export class GithubReview {
   }
 
   async getReviewComments(): Promise<ReviewComments> {
+    core.debug('getReviewComments')
     const response = await this.octokit.rest.pulls.listReviewComments({
       ...this.repo,
       pull_number: this.pull_number
     })
 
+    core.debug(`Response: ${JSON.stringify(response.data)}`)
     return response.data
   }
 
   async deleteComment(comment_id: number) {
+    core.debug(`deleteComment ${comment_id}`)
     await this.octokit.rest.pulls.deleteReviewComment({
       ...this.repo,
       comment_id: comment_id

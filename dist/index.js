@@ -29389,13 +29389,16 @@ class GithubReview {
         return response.data;
     }
     async getReviewComments() {
+        core.debug('getReviewComments');
         const response = await this.octokit.rest.pulls.listReviewComments({
             ...this.repo,
             pull_number: this.pull_number
         });
+        core.debug(`Response: ${JSON.stringify(response.data)}`);
         return response.data;
     }
     async deleteComment(comment_id) {
+        core.debug(`deleteComment ${comment_id}`);
         await this.octokit.rest.pulls.deleteReviewComment({
             ...this.repo,
             comment_id: comment_id
@@ -30086,7 +30089,6 @@ exports.SonarReport = void 0;
 const enum_1 = __nccwpck_require__(9289);
 const IMAGE_DIR_LINK = 'https://hsonar.s3.ap-southeast-1.amazonaws.com/images/';
 const REVIEW_BODY_PATTERN = /^# SonarQube Code Analytics/g;
-const COMMENT_KEY_PATTERN = /project\/issues\?id=.+&pullRequest=\d+&open=(.+)\)/g;
 class SonarReport {
     host;
     projectKey;
@@ -30289,9 +30291,11 @@ ${this.duplicatedIcon(param.duplicatedValue)} ${duplicatedText}`;
         return REVIEW_BODY_PATTERN.test(body);
     }
     getIssueCommentKey(body) {
-        const match = COMMENT_KEY_PATTERN.exec(body);
-        if (match) {
-            return match[1];
+        const startSymbol = '&open=';
+        const start = body.indexOf(startSymbol);
+        const end = body.indexOf(')', start);
+        if (start && end) {
+            return body.substring(start + startSymbol.length, end);
         }
     }
 }

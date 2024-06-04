@@ -1,8 +1,6 @@
-import { summary } from '@actions/core'
 import { GitReviewParam, GithubReview, Review, ReviewComment } from 'src/github'
 import { Publisher } from 'src/model/entity'
 import { Sonar } from 'src/sonar'
-import * as entity from 'src/sonar/entity'
 
 export class ReviewPublisher implements Publisher {
   sonar: Sonar

@@ -21,7 +21,7 @@ describe('main.ts', () => {
     })
     const github = new GithubReview({
       repo: repo,
-      pull_number: 9,
+      pull_number: 370,
       token: token
     })
     const publisher = new ReviewPublisher(sonar, github)

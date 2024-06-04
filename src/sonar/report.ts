@@ -3,8 +3,6 @@ import { MetricKey, QualityStatus, SecurityLevel } from './enum'
 
 const IMAGE_DIR_LINK = 'https://hsonar.s3.ap-southeast-1.amazonaws.com/images/'
 const REVIEW_BODY_PATTERN = /^# SonarQube Code Analytics/g
-const COMMENT_KEY_PATTERN =
-  /project\/issues\?id=.+&pullRequest=\d+&open=(.+)\)/g
 
 export class SonarReport {
   host?: string
@@ -256,9 +254,11 @@ ${this.duplicatedIcon(param.duplicatedValue)} ${duplicatedText}`
   }
 
   getIssueCommentKey(body: string) {
-    const match = COMMENT_KEY_PATTERN.exec(body)
-    if (match) {
-      return match[1]
+    const startSymbol = '&open='
+    const start = body.indexOf(startSymbol)
+    const end = body.indexOf(')', start)
+    if (start && end) {
+      return body.substring(start + startSymbol.length, end)
     }
   }
 }
