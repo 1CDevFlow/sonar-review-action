@@ -1,7 +1,7 @@
 import { debug } from 'console'
 import { config } from 'dotenv'
 
-import { GithubMerge } from '../src/github'
+import { GithubReview } from '../src/github'
 
 describe('github', () => {
   config()
@@ -21,7 +21,7 @@ describe('github', () => {
   // })
 
   it('getQualityDiscussion', async () => {
-    const githubMR = new GithubMerge({
+    const githubMR = new GithubReview({
       pull_number: 9,
       token: token,
       repo: repo
@@ -29,7 +29,7 @@ describe('github', () => {
     debug(await githubMR.getQualityDiscussion())
   })
   it('getReviews', async () => {
-    const githubMR = new GithubMerge({
+    const githubMR = new GithubReview({
       pull_number: 9,
       token: token,
       repo: repo
@@ -38,7 +38,7 @@ describe('github', () => {
   })
 
   it('getReviewComments', async () => {
-    const githubMR = new GithubMerge({
+    const githubMR = new GithubReview({
       pull_number: 9,
       token: token,
       repo: repo

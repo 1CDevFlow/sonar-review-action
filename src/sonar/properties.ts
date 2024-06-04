@@ -39,10 +39,10 @@ export class SonarProperties {
   }
 
   getProjectKey() {
-    return this.properties[PROJECT_KEY_PROPERTY]
+    return this.get(PROJECT_KEY_PROPERTY)
   }
 
   getSonarURL() {
-    return this.properties[HOST_URL_PROPERTY]
+    return this.get(HOST_URL_PROPERTY)
   }
 }

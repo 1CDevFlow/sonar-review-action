@@ -2,12 +2,16 @@ import { Issue, ProjectStatus } from './entity'
 import { MetricKey, QualityStatus, SecurityLevel } from './enum'
 
 const IMAGE_DIR_LINK = 'https://hsonar.s3.ap-southeast-1.amazonaws.com/images/'
+const REVIEW_BODY_PATTERN = /^# SonarQube Code Analytics/g
+const COMMENT_KEY_PATTERN =
+  /project\/issues\?id=.+&pullRequest=\d+&open=(.+)\)/g
 
 export class SonarReport {
   host?: string
   projectKey?: string
   branchPluginEnabled?: boolean
   pull_number?: number
+
   constructor(opt: {
     host?: string
     projectKey?: string
@@ -129,7 +133,7 @@ ${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${
     ]
   }
 
-  templateReport(param: {
+  private templateReport(param: {
     status: string
     bugCount: number
     bugSecurity: string
@@ -245,5 +249,16 @@ ${this.duplicatedIcon(param.duplicatedValue)} ${duplicatedText}`
       return this.icon('coverage_gt_50')
     }
     return this.icon('coverage_gt_80')
+  }
+
+  isSummaryComment(body: string) {
+    return REVIEW_BODY_PATTERN.test(body)
+  }
+
+  getIssueCommentKey(body: string) {
+    const match = COMMENT_KEY_PATTERN.exec(body)
+    if (match) {
+      return match[1]
+    }
   }
 }

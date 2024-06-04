@@ -1,8 +1,8 @@
 import { config } from 'dotenv'
 
-import { Publisher } from '../src/publisher'
+import { ReviewPublisher } from '../src/publisher/review'
 import { Sonar } from '../src/sonar'
-import { GithubMerge } from '../src/github'
+import { GithubReview } from '../src/github'
 
 describe('main.ts', () => {
   config()
@@ -19,12 +19,12 @@ describe('main.ts', () => {
       branchPluginEnabled: true,
       pull_number: 370
     })
-    const github = new GithubMerge({
+    const github = new GithubReview({
       repo: repo,
       pull_number: 9,
       token: token
     })
-    const publisher = new Publisher(sonar, github)
+    const publisher = new ReviewPublisher(sonar, github)
     await publisher.generateReport()
   })
   it('publishIssues', async () => {
@@ -34,12 +34,12 @@ describe('main.ts', () => {
       branchPluginEnabled: true,
       pull_number: 370
     })
-    const github = new GithubMerge({
+    const github = new GithubReview({
       repo: repo,
       pull_number: 370,
       token: token
     })
-    const publisher = new Publisher(sonar, github)
+    const publisher = new ReviewPublisher(sonar, github)
     const status = {
       projectStatus: {
         status: 'UNKNOWN',

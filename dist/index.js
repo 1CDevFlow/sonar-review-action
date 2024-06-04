@@ -29276,10 +29276,10 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.GithubMerge = void 0;
+exports.GithubReview = void 0;
 const github = __importStar(__nccwpck_require__(5438));
 const core = __importStar(__nccwpck_require__(2186));
-class GithubMerge {
+class GithubReview {
     pull_number;
     octokit;
     repo;
@@ -29425,7 +29425,7 @@ class GithubMerge {
         return data;
     }
 }
-exports.GithubMerge = GithubMerge;
+exports.GithubReview = GithubReview;
 function headSha() {
     return pullRequestContext().pull_request.head.sha;
 }
@@ -29599,7 +29599,7 @@ const sonar_1 = __nccwpck_require__(7709);
 const properties_1 = __nccwpck_require__(1045);
 const github_1 = __nccwpck_require__(678);
 const autoconfig_1 = __importDefault(__nccwpck_require__(4922));
-const publisher_1 = __nccwpck_require__(4458);
+const PublisherFactory = __importStar(__nccwpck_require__(4458));
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -29608,17 +29608,16 @@ async function run() {
     try {
         const githubConfig = (0, autoconfig_1.default)();
         const sonarConfig = new properties_1.SonarProperties({ projectDir: process.cwd() });
-        const args = {
-            sonarToken: core.getInput('sonar_token') || process.env.SONAR_TOKEN || '',
+        core.debug(`generate report`);
+        generateReport({
+            sonarToken: core.getInput('sonar_token') || process.env.SONAR_TOKEN,
             sonarURL: core.getInput('sonar_url') || sonarConfig.getSonarURL(),
             sonarProjectKey: core.getInput('sonar_project') || sonarConfig.getProjectKey(),
             sonarBranchPlugin: core.getBooleanInput('sonar_branch_plugin'),
             repo: githubConfig.repo,
-            mergeID: parseInt(core.getInput('pull_number')) || githubConfig.pr?.number || 9,
+            mergeID: parseInt(core.getInput('pull_number')) || githubConfig.pr?.number,
             githubToken: core.getInput('github_token') || process.env.GITHUB_TOKEN || ''
-        };
-        core.debug(`generate report`);
-        generateReport(args);
+        });
     }
     catch (error) {
         // Fail the workflow run if an error occurs
@@ -29628,7 +29627,10 @@ async function run() {
 }
 exports.run = run;
 async function generateReport(args) {
-    const github = new github_1.GithubMerge({
+    if (!args.mergeID) {
+        throw 'You need to specify pull_number';
+    }
+    const github = new github_1.GithubReview({
         token: args.githubToken,
         pull_number: args.mergeID,
         repo: args.repo
@@ -29640,7 +29642,7 @@ async function generateReport(args) {
         branchPluginEnabled: args.sonarBranchPlugin,
         pull_number: args.mergeID
     });
-    const publisher = new publisher_1.Publisher(sonar, github);
+    const publisher = PublisherFactory.create(sonar, github);
     await publisher.generateReport();
 }
 exports.generateReport = generateReport;
@@ -29649,15 +29651,54 @@ exports.generateReport = generateReport;
 /***/ }),
 
 /***/ 5473:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.create = void 0;
+const review_1 = __nccwpck_require__(6000);
+function create(sonar, github) {
+    return new review_1.ReviewPublisher(sonar, github);
+}
+exports.create = create;
+
+
+/***/ }),
+
+/***/ 4458:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+__exportStar(__nccwpck_require__(5473), exports);
+
+
+/***/ }),
+
+/***/ 6000:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Publisher = void 0;
-const REVIEW_BODY_PATTERN = /^# SonarQube Code Analytics/g;
-const COMMENT_KEY_PATTERN = /project\/issues\?id=.+&pullRequest=\d+&open=(.+)\)/g;
-class Publisher {
+exports.ReviewPublisher = void 0;
+class ReviewPublisher {
     sonar;
     github;
     constructor(sonar, github) {
@@ -29707,13 +29748,14 @@ class Publisher {
             await this.createNewReview(comment, comments);
         }
         else {
-            await this.updateReview(existsReview, comment, comments);
+            await this.updateReview(comment, comments);
         }
+        return true;
     }
     async createNewReview(comment, comments) {
         await this.github.createReviewComments(comment, comments);
     }
-    async updateReview(review, title, comments) {
+    async updateReview(title, comments) {
         const reviewComments = await this.github.getReviewComments();
         const needDelete = [];
         const needUpdate = [];
@@ -29762,45 +29804,17 @@ class Publisher {
         let latest = undefined;
         for (const i in reviews) {
             const review = reviews[i];
-            if (review.body && REVIEW_BODY_PATTERN.test(review.body)) {
+            if (this.sonar.qualityGate.isSummaryComment(review.body)) {
                 latest = review;
             }
         }
         return latest;
     }
     getCommentKey(comment) {
-        const match = COMMENT_KEY_PATTERN.exec(comment.body);
-        if (match) {
-            return match[1];
-        }
+        return this.sonar.qualityGate.getIssueCommentKey(comment.body);
     }
 }
-exports.Publisher = Publisher;
-
-
-/***/ }),
-
-/***/ 4458:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-__exportStar(__nccwpck_require__(5473), exports);
+exports.ReviewPublisher = ReviewPublisher;
 
 
 /***/ }),
@@ -30045,10 +30059,10 @@ class SonarProperties {
         return this.properties[key];
     }
     getProjectKey() {
-        return this.properties[PROJECT_KEY_PROPERTY];
+        return this.get(PROJECT_KEY_PROPERTY);
     }
     getSonarURL() {
-        return this.properties[HOST_URL_PROPERTY];
+        return this.get(HOST_URL_PROPERTY);
     }
 }
 exports.SonarProperties = SonarProperties;
@@ -30065,6 +30079,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.SonarReport = void 0;
 const enum_1 = __nccwpck_require__(9289);
 const IMAGE_DIR_LINK = 'https://hsonar.s3.ap-southeast-1.amazonaws.com/images/';
+const REVIEW_BODY_PATTERN = /^# SonarQube Code Analytics/g;
+const COMMENT_KEY_PATTERN = /project\/issues\?id=.+&pullRequest=\d+&open=(.+)\)/g;
 class SonarReport {
     host;
     projectKey;
@@ -30262,6 +30278,15 @@ ${this.duplicatedIcon(param.duplicatedValue)} ${duplicatedText}`;
             return this.icon('coverage_gt_50');
         }
         return this.icon('coverage_gt_80');
+    }
+    isSummaryComment(body) {
+        return REVIEW_BODY_PATTERN.test(body);
+    }
+    getIssueCommentKey(body) {
+        const match = COMMENT_KEY_PATTERN.exec(body);
+        if (match) {
+            return match[1];
+        }
     }
 }
 exports.SonarReport = SonarReport;

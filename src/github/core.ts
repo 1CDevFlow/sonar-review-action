@@ -14,7 +14,7 @@ export type ReviewComments =
   Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/comments']['response']['data']
 export type ReviewComment = ReviewComments[0]
 
-export class GithubMerge {
+export class GithubReview {
   pull_number: number
   octokit: InstanceType<typeof GitHub>
   repo: Repo
