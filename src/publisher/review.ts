@@ -1,3 +1,4 @@
+import { summary } from '@actions/core'
 import { GitReviewParam, GithubReview, Review, ReviewComment } from 'src/github'
 import { Publisher } from 'src/model/entity'
 import { Sonar } from 'src/sonar'
@@ -12,35 +13,47 @@ export class ReviewPublisher implements Publisher {
   }
 
   async generateReport(): Promise<boolean> {
+    const reportData = await this.getReportData()
+
+    if (reportData === undefined) {
+      return false
+    }
+
+    return await this.publishIssues(reportData.summary, reportData.comments)
+  }
+
+  async publishIssues(
+    summary: string,
+    comments: GitReviewParam[]
+  ): Promise<boolean> {
+    const existsReview = await this.getExistsReview()
+
+    if (existsReview === undefined) {
+      await this.createNewReview(summary, comments)
+    } else {
+      await this.updateReview(existsReview, summary, comments)
+    }
+    return true
+  }
+
+  private async getReportData() {
     const quality = await this.sonar.getQualityStatus()
     if (!quality) {
-      return false
+      return undefined
     }
 
     const issues = await this.sonar.allIssues()
     if (!issues) {
-      return false
+      return undefined
     }
-
-    await this.publishIssues(quality, issues.issues)
-
-    return true
-  }
-
-  async publishIssues(
-    quality: entity.Qualitygate,
-    issues: entity.Issue[]
-  ): Promise<boolean> {
-    const existsReview = await this.getExistsReview()
-
     const comments: GitReviewParam[] = []
     const stat = {
       bug: 0,
       vul: 0,
       smell: 0
     }
-    for (const i in issues) {
-      const issue = issues[i]
+    for (const i in issues.issues) {
+      const issue = issues.issues[i]
       if (issue.type == 'BUG') {
         stat.bug++
       } else if (issue.type == 'VULNERABILITY') {
@@ -55,30 +68,31 @@ export class ReviewPublisher implements Publisher {
         line: issue.line || issue.textRange.startLine
       })
     }
-    const comment = this.sonar.qualityGate.report(
+    const summary = this.sonar.qualityGate.report(
       quality.projectStatus,
       stat.bug,
       stat.vul,
       stat.smell
     )
 
-    if (existsReview === undefined) {
-      await this.createNewReview(comment, comments)
-    } else {
-      await this.updateReview(comment, comments)
+    return {
+      summary,
+      comments
     }
-    return true
   }
 
-  private async createNewReview(comment: string, comments: GitReviewParam[]) {
-    await this.github.createReviewComments(comment, comments)
+  private async createNewReview(summary: string, comments: GitReviewParam[]) {
+    await this.github.createReviewComments(summary, comments)
   }
 
-  private async updateReview(title: string, comments: GitReviewParam[]) {
+  private async updateReview(
+    review: Review,
+    summary: string,
+    comments: GitReviewParam[]
+  ) {
     const reviewComments = await this.github.getReviewComments()
 
     const needDelete: number[] = []
-    const needUpdate: { comment_id: number; comment: GitReviewParam }[] = []
     const needCreate: GitReviewParam[] = []
 
     const commentsHash = new Map(comments.map(c => [c.key, c]))
@@ -97,12 +111,12 @@ export class ReviewPublisher implements Publisher {
       if (comment === undefined) {
         needDelete.push(reviewComment.id)
       } else if (comment.comment != reviewComment.body) {
-        needUpdate.push({
-          comment_id: reviewComment.id,
-          comment: comment
-        })
+        needDelete.push(reviewComment.id)
+        needCreate.push(comment)
       }
     }
+
+    await this.github.updateReview(review.id, summary)
 
     for (const i in comments) {
       const comment = comments[i]
@@ -113,12 +127,7 @@ export class ReviewPublisher implements Publisher {
     }
 
     if (needCreate && needCreate.length) {
-      await this.github.createReviewComments(title, needCreate)
-    }
-
-    for (const i in needUpdate) {
-      const record = needUpdate[i]
-      await this.github.updateReviewComment(record.comment_id, record.comment)
+      await this.github.createReviewComments('', needCreate)
     }
 
     for (const i in needDelete) {

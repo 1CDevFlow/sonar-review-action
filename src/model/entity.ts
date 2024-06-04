@@ -1,3 +1,4 @@
+import { GitReviewParam } from 'src/github'
 import * as entity from 'src/sonar/entity'
 
 export interface Repo {
@@ -7,8 +8,5 @@ export interface Repo {
 
 export interface Publisher {
   generateReport(): Promise<boolean>
-  publishIssues(
-    quality: entity.Qualitygate,
-    issues: entity.Issue[]
-  ): Promise<boolean>
+  publishIssues(summary: string, comments: GitReviewParam[]): Promise<boolean>
 }

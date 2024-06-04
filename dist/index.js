@@ -29311,7 +29311,7 @@ class GithubReview {
             : await this.createComment(comment);
         return data;
     }
-    async createReviewComments(body, params) {
+    async createReviewComments(summary, params) {
         core.debug(`createReviewComments`);
         const comments = [];
         for (const i in params) {
@@ -29335,18 +29335,18 @@ class GithubReview {
         const response = await this.octokit.rest.pulls.createReview({
             ...commandParams,
             event: 'COMMENT',
-            body: body,
+            body: summary,
             comments: comments
         });
         return response.data;
     }
-    async updateReview(review_id, body) {
+    async updateReview(review_id, summary) {
+        core.debug(`updateReview review_id: ${review_id}`);
         await this.octokit.rest.pulls.updateReview({
             ...this.repo,
             review_id: review_id,
             pull_number: this.pull_number,
-            body: body,
-            commit_id: headSha()
+            body: summary
         });
     }
     async createReviewComment(review, comment) {
@@ -29706,27 +29706,39 @@ class ReviewPublisher {
         this.sonar = sonar;
     }
     async generateReport() {
+        const reportData = await this.getReportData();
+        if (reportData === undefined) {
+            return false;
+        }
+        return await this.publishIssues(reportData.summary, reportData.comments);
+    }
+    async publishIssues(summary, comments) {
+        const existsReview = await this.getExistsReview();
+        if (existsReview === undefined) {
+            await this.createNewReview(summary, comments);
+        }
+        else {
+            await this.updateReview(existsReview, summary, comments);
+        }
+        return true;
+    }
+    async getReportData() {
         const quality = await this.sonar.getQualityStatus();
         if (!quality) {
-            return false;
+            return undefined;
         }
         const issues = await this.sonar.allIssues();
         if (!issues) {
-            return false;
+            return undefined;
         }
-        await this.publishIssues(quality, issues.issues);
-        return true;
-    }
-    async publishIssues(quality, issues) {
-        const existsReview = await this.getExistsReview();
         const comments = [];
         const stat = {
             bug: 0,
             vul: 0,
             smell: 0
         };
-        for (const i in issues) {
-            const issue = issues[i];
+        for (const i in issues.issues) {
+            const issue = issues.issues[i];
             if (issue.type == 'BUG') {
                 stat.bug++;
             }
@@ -29743,22 +29755,18 @@ class ReviewPublisher {
                 line: issue.line || issue.textRange.startLine
             });
         }
-        const comment = this.sonar.qualityGate.report(quality.projectStatus, stat.bug, stat.vul, stat.smell);
-        if (existsReview === undefined) {
-            await this.createNewReview(comment, comments);
-        }
-        else {
-            await this.updateReview(comment, comments);
-        }
-        return true;
+        const summary = this.sonar.qualityGate.report(quality.projectStatus, stat.bug, stat.vul, stat.smell);
+        return {
+            summary,
+            comments
+        };
     }
-    async createNewReview(comment, comments) {
-        await this.github.createReviewComments(comment, comments);
+    async createNewReview(summary, comments) {
+        await this.github.createReviewComments(summary, comments);
     }
-    async updateReview(title, comments) {
+    async updateReview(review, summary, comments) {
         const reviewComments = await this.github.getReviewComments();
         const needDelete = [];
-        const needUpdate = [];
         const needCreate = [];
         const commentsHash = new Map(comments.map(c => [c.key, c]));
         const reviewCommentsHash = new Map();
@@ -29774,12 +29782,11 @@ class ReviewPublisher {
                 needDelete.push(reviewComment.id);
             }
             else if (comment.comment != reviewComment.body) {
-                needUpdate.push({
-                    comment_id: reviewComment.id,
-                    comment: comment
-                });
+                needDelete.push(reviewComment.id);
+                needCreate.push(comment);
             }
         }
+        await this.github.updateReview(review.id, summary);
         for (const i in comments) {
             const comment = comments[i];
             const reviewComment = reviewCommentsHash.get(comment.key);
@@ -29788,11 +29795,7 @@ class ReviewPublisher {
             }
         }
         if (needCreate && needCreate.length) {
-            await this.github.createReviewComments(title, needCreate);
-        }
-        for (const i in needUpdate) {
-            const record = needUpdate[i];
-            await this.github.updateReviewComment(record.comment_id, record.comment);
+            await this.github.createReviewComments('', needCreate);
         }
         for (const i in needDelete) {
             const comment_id = needDelete[i];

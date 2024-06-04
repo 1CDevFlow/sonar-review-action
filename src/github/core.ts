@@ -54,7 +54,7 @@ export class GithubReview {
   }
 
   async createReviewComments(
-    body: string,
+    summary: string,
     params: GitReviewParam[]
   ): Promise<Review | null> {
     core.debug(`createReviewComments`)
@@ -82,19 +82,19 @@ export class GithubReview {
     const response = await this.octokit.rest.pulls.createReview({
       ...commandParams,
       event: 'COMMENT',
-      body: body,
+      body: summary,
       comments: comments
     })
     return response.data
   }
 
-  async updateReview(review_id: number, body: string) {
+  async updateReview(review_id: number, summary: string) {
+    core.debug(`updateReview review_id: ${review_id}`)
     await this.octokit.rest.pulls.updateReview({
       ...this.repo,
       review_id: review_id,
       pull_number: this.pull_number,
-      body: body,
-      commit_id: headSha()
+      body: summary
     })
   }
 
