@@ -2,7 +2,7 @@ import { Issue, ProjectStatus } from './entity'
 import { MetricKey, QualityStatus, SecurityLevel } from './enum'
 
 const IMAGE_DIR_LINK = 'https://hsonar.s3.ap-southeast-1.amazonaws.com/images/'
-const REVIEW_BODY_PATTERN = /^# SonarQube Code Analytics/g
+const REVIEW_BODY_PATTERN = /^`### SonarQube Quality Gate/g
 
 export class SonarReport {
   host?: string
@@ -22,16 +22,30 @@ export class SonarReport {
     this.pull_number = opt.pull_number
   }
 
-  private capitalize(text: string) {
-    return text.charAt(0).toUpperCase() + text.toLowerCase().slice(1)
-  }
-
-  private icon(name: string) {
-    if (!name) {
-      return ''
-    }
-    const iconImage = IMAGE_DIR_LINK + name.toLowerCase() + '.png'
-    return `![${name}](${iconImage})`
+  report(
+    projectStatus: ProjectStatus,
+    bugCount: number,
+    vulnerabilityCount: number,
+    codeSmellCount: number
+  ) {
+    const [
+      bugSecurity,
+      vulSecurity,
+      smellSecurity,
+      duplicatedCode,
+      coverageValue
+    ] = this.getIssueSecurity(projectStatus)
+    return this.templateReport({
+      status: projectStatus.status,
+      bugCount: bugCount,
+      bugSecurity: bugSecurity as string,
+      vulnerabilityCount: vulnerabilityCount,
+      vulnerabilitySecurity: vulSecurity as string,
+      codeSmellCount: codeSmellCount,
+      codeSmellSecurity: smellSecurity as string,
+      coverageValue: coverageValue as number,
+      duplicatedValue: duplicatedCode as number
+    })
   }
 
   issueNote(issue: Issue) {
@@ -45,11 +59,23 @@ export class SonarReport {
       : ''
     let note = `#### [:link:](${issueLink})${issue.message}
 
-${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${this.icon(issue.severity)} **${this.capitalize(issue.severity)}**　　 :hourglass: *${issue.effort}* effort
+${this.icon(issue.type)} ${this.capitalize(issue.type.replace('_', ''))}　　${this.icon(issue.severity)} **${this.capitalize(issue.severity)}**
 
 ${tags}${assignee}[<sub>Why is this an issue?</sub>](${ruleLink})`
 
     return note
+  }
+
+  private capitalize(text: string) {
+    return text.charAt(0).toUpperCase() + text.toLowerCase().slice(1)
+  }
+
+  private icon(name: string) {
+    if (!name) {
+      return ''
+    }
+    const iconImage = IMAGE_DIR_LINK + name.toLowerCase() + '.png'
+    return `![${name}](${iconImage})`
   }
 
   private securityLevel(value: string) {
@@ -103,7 +129,7 @@ ${tags}${assignee}[<sub>Why is this an issue?</sub>](${ruleLink})`
       hotspotSecurity = ''
 
     let duplicatedCode = -1,
-      coverateValue = -1
+      coverageValue = -1
     for (const i in projectStatus.conditions) {
       const condition = projectStatus.conditions[i]
       const level = this.securityLevel(condition.actualValue)
@@ -118,7 +144,7 @@ ${tags}${assignee}[<sub>Why is this an issue?</sub>](${ruleLink})`
       } else if (condition.metricKey == MetricKey.newDuplicatedLinesDensity) {
         duplicatedCode = parseFloat(condition.actualValue)
       } else if (condition.metricKey == MetricKey.newCoverage) {
-        coverateValue = parseFloat(condition.actualValue)
+        coverageValue = parseFloat(condition.actualValue)
       }
     }
     return [
@@ -126,7 +152,7 @@ ${tags}${assignee}[<sub>Why is this an issue?</sub>](${ruleLink})`
       vulSecurity,
       smellSecurity,
       duplicatedCode,
-      coverateValue,
+      coverageValue,
       hotspotSecurity
     ]
   }
@@ -168,53 +194,16 @@ ${tags}${assignee}[<sub>Why is this an issue?</sub>](${ruleLink})`
       status = 'failed'
     }
 
-    const report = `# SonarQube Code Analytics
-## [:link:](${this.getIssuesURL()})Quality Gate ${status}
+    const report = `### SonarQube Quality Gate ${status}! [${this.icon(status)}](${this.getIssuesURL()})
 
-[${this.icon(status)}](${this.getIssuesURL()})
-
-## Additional information
-*The following metrics might not affect the Quality Gate status but improving them will improve your project code quality.*
-
-## Issues
-${this.icon('bug')}  ${this.icon(param.bugSecurity)} [${param.bugCount} Bugs](${this.getIssueURL('BUG')})
-
-${this.icon('vulnerability')}  ${this.icon(param.vulnerabilitySecurity)} [${param.vulnerabilityCount} Vulnerabilities](${this.getIssueURL('VULNERABILITY')})
-
+${this.icon('bug')}  ${this.icon(param.bugSecurity)} [${param.bugCount} Bugs](${this.getIssueURL('BUG')})  
+${this.icon('vulnerability')}  ${this.icon(param.vulnerabilitySecurity)} [${param.vulnerabilityCount} Vulnerabilities](${this.getIssueURL('VULNERABILITY')})  
 ${this.icon('code_smell')}  ${this.icon(param.codeSmellSecurity)} [${param.codeSmellCount} Code Smells](${this.getIssueURL('CODE_SMELL')})
 
-## Coverage and Duplications
-${this.coverageIcon(param.coverageValue)} ${coverageText}
-
+${this.coverageIcon(param.coverageValue)} ${coverageText}  
 ${this.duplicatedIcon(param.duplicatedValue)} ${duplicatedText}`
 
     return report
-  }
-
-  report(
-    projectStatus: ProjectStatus,
-    bugCount: number,
-    vulnerabilityCount: number,
-    codeSmellCount: number
-  ) {
-    const [
-      bugSecurity,
-      vulSecurity,
-      smellSecurity,
-      duplicatedCode,
-      coverateValue
-    ] = this.getIssueSecurity(projectStatus)
-    return this.templateReport({
-      status: projectStatus.status,
-      bugCount: bugCount,
-      bugSecurity: bugSecurity as string,
-      vulnerabilityCount: vulnerabilityCount,
-      vulnerabilitySecurity: vulSecurity as string,
-      codeSmellCount: codeSmellCount,
-      codeSmellSecurity: smellSecurity as string,
-      coverageValue: coverateValue as number,
-      duplicatedValue: duplicatedCode as number
-    })
   }
 
   private duplicatedIcon(duplicatedCode: number): string {
