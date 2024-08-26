@@ -30088,7 +30088,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.SonarReport = void 0;
 const enum_1 = __nccwpck_require__(9289);
 const IMAGE_DIR_LINK = 'https://hsonar.s3.ap-southeast-1.amazonaws.com/images/';
-const REVIEW_BODY_PATTERN = /^`### SonarQube Quality Gate/g;
 class SonarReport {
     host;
     projectKey;
@@ -30277,7 +30276,8 @@ ${this.duplicatedIcon(param.duplicatedValue)} ${duplicatedText}`;
         return this.icon('coverage_gt_80');
     }
     isSummaryComment(body) {
-        return REVIEW_BODY_PATTERN.test(body);
+        return (/^#+\sSonarQube Quality Gate/g.test(body) ||
+            /^#+\sSonarQube Code Analytics/g.test(body));
     }
     getIssueCommentKey(body) {
         const startSymbol = '&open=';

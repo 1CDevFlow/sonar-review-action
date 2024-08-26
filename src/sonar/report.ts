@@ -2,7 +2,6 @@ import { Issue, ProjectStatus } from './entity'
 import { MetricKey, QualityStatus, SecurityLevel } from './enum'
 
 const IMAGE_DIR_LINK = 'https://hsonar.s3.ap-southeast-1.amazonaws.com/images/'
-const REVIEW_BODY_PATTERN = /^`### SonarQube Quality Gate/g
 
 export class SonarReport {
   host?: string
@@ -239,7 +238,10 @@ ${this.duplicatedIcon(param.duplicatedValue)} ${duplicatedText}`
   }
 
   isSummaryComment(body: string) {
-    return REVIEW_BODY_PATTERN.test(body)
+    return (
+      /^#+\sSonarQube Quality Gate/g.test(body) ||
+      /^#+\sSonarQube Code Analytics/g.test(body)
+    )
   }
 
   getIssueCommentKey(body: string) {
